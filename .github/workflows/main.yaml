@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5.0.0
+        with:
+          go-version: stable
+
+      - name: Build
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          VERSION=$([[ ! -z $GITHUB_REF_NAME ]] && echo $GITHUB_REF_NAME || echo $GITHUB_HEAD_NAME)
+          echo "Raiden version: $VERSION"
+
+          go build -ldflags="-s -w" -trimpath -o build/raiden ./main.go
+          cd build
+          if [[ $GOOS == 'darwin' ]]; then
+            cp raiden raiden-macos-"$GOARCH"
+            sha256sum -b raiden-macos-"$GOARCH" > raiden-macos-"$GOARCH".sha256
+          elif [[ $GOOS == 'windows' ]]; then
+            mv raiden raiden.exe
+            sudo apt-get install -y nsis
+            makensis -NOCD -DARCH="$GOARCH" ${GITHUB_WORKSPACE}/scripts/windows.nsi
+            sha256sum -b raiden-"$GOOS"-"$GOARCH"-setup.exe > raiden-"$GOOS"-"$GOARCH"-setup.exe.sha256
+          else
+            cp raiden raiden-"$GOOS"-"$GOARCH"
+            sha256sum -b raiden-"$GOOS"-"$GOARCH" > raiden-"$GOOS"-"$GOARCH".sha256
+          fi
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: build/raiden-*
+          make_latest: true
+          generate_release_notes: true
+
+  push-version:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    env:
+      changelog: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get the latest tag
+        id: get_tag
+        run: echo "::set-output name=tag::${{ github.event.release.tag_name }}"
+
+      - name: Check for jq and install if missing
+        run: |
+          if ! command -v jq &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
+
+      - name: Check for changelog and assets
+        id: check_files
+        run: |
+          if [ -f "CHANGELOG.md" ]; then echo "changelog=true" >> $GITHUB_ENV; else echo "changelog=false" >> $GITHUB_ENV; fi
+          if [ -d "assets" ]; then echo "assets=true" >> $GITHUB_ENV; else echo "assets=false" >> $GITHUB_ENV; fi
+
+      - name: Push tag, changelog, and assets to documentation API
+        run: |
+          payload="{\"version\": \"${{ steps.get_tag.outputs.tag }}\""
+          if [ "${{ env.changelog }}" == "true" ]; then
+            changelog_content=$(cat CHANGELOG.md | jq -Rs .)
+            payload="$payload, \"changelog\": $changelog_content"
+          fi
+          payload="$payload}"
+          echo $payload | jq .
+          curl -X POST -H "Content-Type: application/json" -d "$payload" https://eoajuw00wc34s58.m.pipedream.net/push-version-tests
