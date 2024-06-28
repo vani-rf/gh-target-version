@@ -54,7 +54,7 @@ jobs:
           generate_release_notes: true
 
   push-version:
-    needs: build
+    needs: build-and-release
     runs-on: ubuntu-latest
     if: success()
     env:
