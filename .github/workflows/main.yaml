@@ -65,7 +65,7 @@ jobs:
 
       - name: Get the latest tag
         id: get_tag
-        run: echo "::set-output name=tag::${{ $GITHUB_REF_NAME }}"
+        run: echo "::set-output name=tag::${{ GITHUB_REF_NAME }}"
 
       - name: Check for jq and install if missing
         run: |
