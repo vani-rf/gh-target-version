@@ -58,31 +58,21 @@ jobs:
     runs-on: ubuntu-latest
     if: success()
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Get the latest tag
-        id: get_tag
-        run: echo "::set-output name=tag::$GITHUB_REF_NAME"
-
-      - name: Check for jq and install if missing
+      - name: Checkout target repo
         run: |
-          if ! command -v jq &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y jq
-          fi
+          git clone https://${{ secrets.TARGET_USERNAME }:${{ secrets.TARGET_REPO_TOKEN }}@github.com/vani-rf/gh-target-version.git gh-target-version
 
-      - name: Create changelog text
-        id: changelog
-        uses: loopwerk/tag-changelog@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          exclude_types: other,doc,chore
-
-      - name: Push tag, changelog, and assets to documentation API
+      - name: Write JSON file
         run: |
-          echo "${{ steps.changelog.outputs.changes }}"
-          payload="{\"version\": \"${{ steps.get_tag.outputs.tag }}\""
-          payload="$payload}"
-          echo $payload | jq .
-          curl -X POST -H "Content-Type: application/json" -d "$payload" https://eoajuw00wc34s58.m.pipedream.net/push-version-tests
+          echo "{\"version\": \"$GITHUB_REF_NAME\"" > gh-target-version/latest.json
+      
+      - name: Commit and push changes
+        run: |
+          cd gh-target-version
+          git add .
+          git commit -m "Update to version $GITHUB_REF_NAME"
+          git push
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
+      GITHUB_USER: ${{ secrets.TARGET_USERNAME }}
