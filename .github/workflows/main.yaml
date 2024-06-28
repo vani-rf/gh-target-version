@@ -81,7 +81,7 @@ jobs:
 
       - name: Push tag, changelog, and assets to documentation API
         run: |
-          cat(${{ steps.changelog.outputs.changes }})
+          echo ${{ steps.changelog.outputs.changes }}
           payload="{\"version\": \"${{ steps.get_tag.outputs.tag }}\""
           payload="$payload}"
           echo $payload | jq .
