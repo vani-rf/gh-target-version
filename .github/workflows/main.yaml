@@ -57,8 +57,6 @@ jobs:
     needs: build-and-release
     runs-on: ubuntu-latest
     if: success()
-    env:
-      changelog: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -74,19 +72,17 @@ jobs:
             sudo apt-get install -y jq
           fi
 
-      - name: Check for changelog and assets
-        id: check_files
-        run: |
-          if [ -f "CHANGELOG.md" ]; then echo "changelog=true" >> $GITHUB_ENV; else echo "changelog=false" >> $GITHUB_ENV; fi
-          if [ -d "assets" ]; then echo "assets=true" >> $GITHUB_ENV; else echo "assets=false" >> $GITHUB_ENV; fi
+      - name: Create changelog text
+        id: changelog
+        uses: loopwerk/tag-changelog@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          exclude_types: other,doc,chore
 
       - name: Push tag, changelog, and assets to documentation API
         run: |
+          cat(${{ steps.changelog.outputs.changes }})
           payload="{\"version\": \"${{ steps.get_tag.outputs.tag }}\""
-          if [ "${{ env.changelog }}" == "true" ]; then
-            changelog_content=$(cat CHANGELOG.md | jq -Rs .)
-            payload="$payload, \"changelog\": $changelog_content"
-          fi
           payload="$payload}"
           echo $payload | jq .
           curl -X POST -H "Content-Type: application/json" -d "$payload" https://eoajuw00wc34s58.m.pipedream.net/push-version-tests
