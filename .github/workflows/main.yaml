@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Checkout target repo
         run: |
-          git clone https://$GITHUB_USER:$GITHUB_USER@github.com/vani-rf/gh-target-version.git gh-target-version
+          git clone https://$GITHUB_USER:$GITHUB_TOKEN@github.com/vani-rf/gh-target-version.git gh-target-version
 
       - name: Write JSON file
         run: |
@@ -23,7 +23,8 @@ jobs:
         run: |
           cd gh-target-version
           git config --global user.name "ci-manager"
-          git config --global user.email "ci-manager@vani-rf.com"
+          git config --global user.email "ci-manager@raiden.com"
+          git remote set-url origin https://$GITHUB_USER:$GITHUB_TOKEN@github.com/gh-target-version.git
           git add .
           git commit -m "Update to version $GITHUB_REF_NAME"
           git push
