@@ -24,7 +24,7 @@ jobs:
           cd gh-target-version
           git config --global user.name "ci-manager"
           git config --global user.email "ci-manager@raiden.com"
-          git remote set-url origin https://$GITHUB_USER:$GITHUB_TOKEN@github.com/gh-target-version.git
+          git remote set-url origin https://$GITHUB_USER:$GITHUB_TOKEN@github.com/vani-rf/gh-target-version.git
           git add .
           git commit -m "Update to version $GITHUB_REF_NAME"
           git push
